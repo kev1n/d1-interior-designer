@@ -14,6 +14,7 @@ export async function generateImage(
   try {
     // Initialize the Gemini API client
     const apiKey = process.env.GEMINI_API_KEY;
+    console.log("apiKey", apiKey);
 
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY not found in environment variables");
