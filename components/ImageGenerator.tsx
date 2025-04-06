@@ -17,16 +17,19 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ImageSearch } from "@/components/ImageSearch";
+import { ImageUploader } from "@/components/ImageUploader";
+import { ImagePreview } from "@/components/ImagePreview";
+import { GeneratedImagePreview } from "@/components/GeneratedImagePreview";
+import { Divider } from "@/components/Divider";
 import { generateImage } from "@/app/actions/gemini";
 import { Turn } from "@/app/actions/types";
 
@@ -35,13 +38,23 @@ const formSchema = z.object({
   prompt: z.string().min(10, {
     message: "Prompt must be at least 10 characters.",
   }),
+  baseImage: z.any().optional(),
   referenceImage: z.any().optional(),
 });
 
 export function ImageGenerator() {
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // Base image (required for iteration)
+  const [baseImageUrl, setBaseImageUrl] = useState<string | null>(null);
+  const [baseImageLoading, setBaseImageLoading] = useState(false);
+
+  // Reference image (optional inspiration)
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(
+    null
+  );
+  const [referenceImageLoading, setReferenceImageLoading] = useState(false);
 
   // Initialize the form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -51,26 +64,51 @@ export function ImageGenerator() {
     },
   });
 
-  // Handle file input change
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Handle base image upload
+  const handleBaseImageUpload = (dataUrl: string, file: File) => {
+    setBaseImageUrl(dataUrl);
+    form.setValue("baseImage", file);
+  };
 
-    // Preview the selected image
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        const dataUrl = event.target.result as string;
-        setPreviewImage(dataUrl);
-        form.setValue("referenceImage", file);
-      }
-    };
-    reader.readAsDataURL(file);
+  // Handle base image search selection
+  const handleBaseImageSearch = (dataUrl: string) => {
+    setBaseImageUrl(dataUrl);
+    form.setValue("baseImage", undefined); // Clear the file input
+  };
+
+  // Handle reference image upload
+  const handleReferenceImageUpload = (dataUrl: string, file: File) => {
+    setReferenceImageUrl(dataUrl);
+    form.setValue("referenceImage", file);
+  };
+
+  // Handle reference image search selection
+  const handleReferenceImageSearch = (dataUrl: string) => {
+    setReferenceImageUrl(dataUrl);
+    form.setValue("referenceImage", undefined); // Clear the file input
+  };
+
+  // Clear base image
+  const clearBaseImage = () => {
+    setBaseImageUrl(null);
+    form.setValue("baseImage", undefined);
+  };
+
+  // Clear reference image
+  const clearReferenceImage = () => {
+    setReferenceImageUrl(null);
+    form.setValue("referenceImage", undefined);
   };
 
   // Handle form submission
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      // Validate that we have the required base image
+      if (!baseImageUrl) {
+        toast.error("Please provide a base image to iterate from");
+        return;
+      }
+
       setLoading(true);
       setGeneratedImage(null);
 
@@ -81,14 +119,29 @@ export function ImageGenerator() {
         },
       ];
 
-      // Add reference image if provided
-      if (previewImage) {
+      // Add base image - this is required for iteration
+      if (baseImageUrl) {
         // Extract base64 data by removing the data URL prefix
-        const base64Data = previewImage.split(",")[1];
-        const mimeType = previewImage.split(";")[0].split(":")[1];
+        const base64Data = baseImageUrl.split(",")[1];
+        const mimeType = baseImageUrl.split(";")[0].split(":")[1];
 
         turns.push({
-          text: "Consider this reference image as inspiration.",
+          text: "Use this as the base image to iterate from.",
+          image: {
+            mimeType,
+            data: base64Data,
+          },
+        });
+      }
+
+      // Add optional reference image if provided
+      if (referenceImageUrl) {
+        // Extract base64 data by removing the data URL prefix
+        const base64Data = referenceImageUrl.split(",")[1];
+        const mimeType = referenceImageUrl.split(";")[0].split(":")[1];
+
+        turns.push({
+          text: "Consider this reference image as additional inspiration.",
           image: {
             mimeType,
             data: base64Data,
@@ -116,6 +169,26 @@ export function ImageGenerator() {
     }
   };
 
+  // Download the generated image
+  const handleDownload = () => {
+    if (!generatedImage) return;
+
+    const link = document.createElement("a");
+    link.href = generatedImage;
+    link.download = "interior-design.jpg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Determine if the submit button should be disabled
+  const isSubmitDisabled =
+    loading ||
+    !baseImageUrl ||
+    form.getValues("prompt").length < 10 ||
+    baseImageLoading ||
+    referenceImageLoading;
+
   return (
     <div className="container mx-auto py-10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -123,8 +196,8 @@ export function ImageGenerator() {
           <CardHeader>
             <CardTitle>Generate Interior Design Image</CardTitle>
             <CardDescription>
-              Describe the interior design you want to generate and optionally
-              upload a reference image.
+              Describe your interior design, provide a base image to iterate
+              from, and optionally add a reference image for inspiration.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -133,6 +206,7 @@ export function ImageGenerator() {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
+                {/* Design Prompt */}
                 <FormField
                   control={form.control}
                   name="prompt"
@@ -154,47 +228,87 @@ export function ImageGenerator() {
                   )}
                 />
 
-                <div className="space-y-2">
-                  <FormLabel>Reference Image (Optional)</FormLabel>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="cursor-pointer"
+                {/* Base Image Section - Required */}
+                <div className="space-y-4 border p-4 rounded-md">
+                  <h3 className="text-lg font-medium">Base Image (Required)</h3>
+                  <p className="text-sm text-muted-foreground">
+                    This image will be used as a starting point to generate
+                    variations.
+                  </p>
+
+                  {/* Base Image Search */}
+                  <ImageSearch
+                    onImageSelect={(url) => {
+                      setBaseImageLoading(true);
+                      handleBaseImageSearch(url);
+                      setBaseImageLoading(false);
+                    }}
                   />
-                  <FormDescription>
-                    Upload a reference image to guide the generation.
-                  </FormDescription>
+
+                  <Divider />
+
+                  {/* Base Image Upload */}
+                  <ImageUploader
+                    label="Upload Your Own Base Image"
+                    description="Upload an interior design image to iterate from"
+                    onImageSelect={handleBaseImageUpload}
+                  />
+
+                  {/* Base Image Preview */}
+                  {baseImageUrl && (
+                    <ImagePreview
+                      imageUrl={baseImageUrl}
+                      title="Base Image"
+                      isLoading={baseImageLoading}
+                      onRemove={clearBaseImage}
+                    />
+                  )}
                 </div>
 
-                {previewImage && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium mb-2">
-                      Reference Image Preview:
-                    </p>
-                    <div className="relative aspect-video w-full overflow-hidden rounded-md">
-                      <img
-                        src={previewImage}
-                        alt="Reference"
-                        className="object-cover w-full h-full"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={() => {
-                          setPreviewImage(null);
-                          form.setValue("referenceImage", undefined);
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                {/* Reference Image Section - Optional */}
+                <div className="space-y-4 border p-4 rounded-md border-dashed">
+                  <h3 className="text-lg font-medium">
+                    Reference Image (Optional)
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    This image provides additional inspiration but won&apos;t be
+                    directly iterated on.
+                  </p>
 
-                <Button type="submit" className="w-full" disabled={loading}>
+                  {/* Reference Image Search */}
+                  <ImageSearch
+                    onImageSelect={(url) => {
+                      setReferenceImageLoading(true);
+                      handleReferenceImageSearch(url);
+                      setReferenceImageLoading(false);
+                    }}
+                  />
+
+                  <Divider />
+
+                  {/* Reference Image Upload */}
+                  <ImageUploader
+                    label="Upload Your Own Reference Image"
+                    description="Upload an additional image for inspiration"
+                    onImageSelect={handleReferenceImageUpload}
+                  />
+
+                  {/* Reference Image Preview */}
+                  {referenceImageUrl && (
+                    <ImagePreview
+                      imageUrl={referenceImageUrl}
+                      title="Reference Image"
+                      isLoading={referenceImageLoading}
+                      onRemove={clearReferenceImage}
+                    />
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitDisabled}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -217,44 +331,12 @@ export function ImageGenerator() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="aspect-video w-full overflow-hidden rounded-md bg-muted flex items-center justify-center">
-              {generatedImage ? (
-                <img
-                  src={generatedImage}
-                  alt="Generated Interior Design"
-                  className="object-cover w-full h-full"
-                />
-              ) : (
-                <div className="text-muted-foreground text-center p-4">
-                  {loading ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 className="h-8 w-8 mb-2 animate-spin" />
-                      <p>Generating your design...</p>
-                    </div>
-                  ) : (
-                    <p>Generated image will appear here</p>
-                  )}
-                </div>
-              )}
-            </div>
+            <GeneratedImagePreview
+              imageUrl={generatedImage}
+              isLoading={loading}
+              onDownload={handleDownload}
+            />
           </CardContent>
-          {generatedImage && (
-            <CardFooter>
-              <Button
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = generatedImage;
-                  link.download = "interior-design.jpg";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
-                className="w-full"
-              >
-                Download Image
-              </Button>
-            </CardFooter>
-          )}
         </Card>
       </div>
     </div>
