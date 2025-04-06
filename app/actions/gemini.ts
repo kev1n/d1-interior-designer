@@ -4,17 +4,18 @@ import { GoogleGenAI } from "@google/genai";
 import { Turn } from "./types";
 
 /**
- * Server action to generate an image using Gemini API
+ * Server action to generate a response using Gemini API
  * @param turns Array of turns containing text and optional image data
- * @returns Base64 encoded image data or error
+ * @param isImageGeneration Whether to generate an image
+ * @returns Base64 encoded image data or text or error
  */
-export async function generateImage(
-  turns: Turn[]
-): Promise<{ imageData?: string; error?: string }> {
+export async function getGeminiResponse(
+  turns: Turn[],
+  isImageGeneration: boolean = true
+): Promise<{ imageData?: string; text?: string; error?: string }> {
   try {
     // Initialize the Gemini API client
     const apiKey = process.env.GEMINI_API_KEY;
-    console.log("apiKey", apiKey);
 
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY not found in environment variables");
@@ -39,13 +40,23 @@ export async function generateImage(
         });
       }
     }
-
-    // Make the API call
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp-image-generation",
+    console.log({
+      model: isImageGeneration
+        ? "gemini-2.0-flash-exp-image-generation"
+        : "gemini-2.5-pro-preview-03-25",
       contents: contents,
       config: {
-        responseModalities: ["Text", "Image"],
+        responseModalities: isImageGeneration ? ["Image"] : ["Text"],
+      },
+    });
+    // Make the API call
+    const response = await ai.models.generateContent({
+      model: isImageGeneration
+        ? "gemini-2.0-flash-exp-image-generation"
+        : "gemini-2.5-pro-preview-03-25",
+      contents: contents,
+      config: {
+        responseModalities: isImageGeneration ? ["Image", "Text"] : ["Text"],
       },
     });
 
@@ -62,6 +73,9 @@ export async function generateImage(
     for (const part of candidateParts) {
       if (part.inlineData) {
         return { imageData: part.inlineData.data };
+      }
+      if (part.text) {
+        return { text: part.text };
       }
     }
 

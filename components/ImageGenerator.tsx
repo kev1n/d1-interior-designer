@@ -8,7 +8,13 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Form } from "@/components/ui/form";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormDescription,
+} from "@/components/ui/form";
 import {
   Card,
   CardContent,
@@ -21,14 +27,20 @@ import { ImageUploader } from "@/components/ImageUploader";
 import { ImagePreview } from "@/components/ImagePreview";
 import { GeneratedImagePreview } from "@/components/GeneratedImagePreview";
 import { Divider } from "@/components/Divider";
-import { generateImage } from "@/app/actions/gemini";
-import { Turn } from "@/app/actions/types";
+import MultipleSelector from "@/components/ui/multi-select";
+import { chain } from "@/app/actions/chain";
+import { TurnImage } from "@/app/actions/types";
 
 // Define the form schema using zod
 const formSchema = z.object({
-  prompt: z.string().min(10, {
-    message: "Prompt must be at least 10 characters.",
-  }),
+  customItems: z
+    .array(
+      z.object({
+        value: z.string(),
+        label: z.string(),
+      })
+    )
+    .optional(),
   baseImage: z.any().optional(),
   referenceImage: z.any().optional(),
 });
@@ -39,7 +51,6 @@ export function ImageGenerator() {
 
   // Base image (required for iteration)
   const [baseImageUrl, setBaseImageUrl] = useState<string | null>(null);
-  const [baseImageLoading, setBaseImageLoading] = useState(false);
 
   // Reference image (optional inspiration)
   const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(
@@ -51,6 +62,8 @@ export function ImageGenerator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      customItems: [],
+      baseImage: undefined,
       referenceImage: undefined,
     },
   });
@@ -59,12 +72,6 @@ export function ImageGenerator() {
   const handleBaseImageUpload = (dataUrl: string, file: File) => {
     setBaseImageUrl(dataUrl);
     form.setValue("baseImage", file);
-  };
-
-  // Handle base image search selection
-  const handleBaseImageSearch = (dataUrl: string) => {
-    setBaseImageUrl(dataUrl);
-    form.setValue("baseImage", undefined); // Clear the file input
   };
 
   // Handle reference image upload
@@ -103,45 +110,33 @@ export function ImageGenerator() {
       setLoading(true);
       setGeneratedImage(null);
 
-      // Prepare the turns data
-      const turns: Turn[] = [
-        {
-          text: form.getValues("prompt"),
-        },
-      ];
+      // Extract base image data and create TurnImage
+      const baseImageData = baseImageUrl.split(",")[1];
+      const baseMimeType = baseImageUrl.split(";")[0].split(":")[1];
 
-      // Add base image - this is required for iteration
-      if (baseImageUrl) {
-        // Extract base64 data by removing the data URL prefix
-        const base64Data = baseImageUrl.split(",")[1];
-        const mimeType = baseImageUrl.split(";")[0].split(":")[1];
+      const baseImage: TurnImage = {
+        data: baseImageData,
+        mimeType: baseMimeType,
+      };
 
-        turns.push({
-          text: "Use this as the base image to iterate from.",
-          image: {
-            mimeType,
-            data: base64Data,
-          },
-        });
-      }
-
-      // Add optional reference image if provided
+      // Extract reference image data if provided
+      let referenceImage: TurnImage | undefined;
       if (referenceImageUrl) {
-        // Extract base64 data by removing the data URL prefix
-        const base64Data = referenceImageUrl.split(",")[1];
-        const mimeType = referenceImageUrl.split(";")[0].split(":")[1];
+        const refImageData = referenceImageUrl.split(",")[1];
+        const refMimeType = referenceImageUrl.split(";")[0].split(":")[1];
 
-        turns.push({
-          text: "Consider this reference image as additional inspiration.",
-          image: {
-            mimeType,
-            data: base64Data,
-          },
-        });
+        referenceImage = {
+          data: refImageData,
+          mimeType: refMimeType,
+        };
       }
 
-      // Call the server action
-      const result = await generateImage(turns);
+      // Get custom items from the MultipleSelector
+      const customItems = form.getValues("customItems") || [];
+      const requestedItems = customItems.map((item) => item.value);
+
+      // Call the chain function
+      const result = await chain(baseImage, referenceImage, requestedItems);
 
       if (result.error) {
         toast.error(result.error);
@@ -173,12 +168,7 @@ export function ImageGenerator() {
   };
 
   // Determine if the submit button should be disabled
-  const isSubmitDisabled =
-    loading ||
-    !baseImageUrl ||
-    form.getValues("prompt").length < 10 ||
-    baseImageLoading ||
-    referenceImageLoading;
+  const isSubmitDisabled = loading || !baseImageUrl || referenceImageLoading;
 
   return (
     <div className="container mx-auto py-10">
@@ -187,7 +177,7 @@ export function ImageGenerator() {
           <CardHeader>
             <CardTitle>Generate Interior Design Image</CardTitle>
             <CardDescription>
-              Describe your interior design, provide a base image to iterate
+              Add items to your interior design, provide a base image to iterate
               from, and optionally add a reference image for inspiration.
             </CardDescription>
           </CardHeader>
@@ -205,20 +195,9 @@ export function ImageGenerator() {
                     variations.
                   </p>
 
-                  {/* Base Image Search */}
-                  <ImageSearch
-                    onImageSelect={(url) => {
-                      setBaseImageLoading(true);
-                      handleBaseImageSearch(url);
-                      setBaseImageLoading(false);
-                    }}
-                  />
-
-                  <Divider />
-
                   {/* Base Image Upload */}
                   <ImageUploader
-                    label="Upload Your Own Base Image"
+                    label="Upload Your Base Image"
                     description="Upload an interior design image to iterate from"
                     onImageSelect={handleBaseImageUpload}
                   />
@@ -228,7 +207,7 @@ export function ImageGenerator() {
                     <ImagePreview
                       imageUrl={baseImageUrl}
                       title="Base Image"
-                      isLoading={baseImageLoading}
+                      isLoading={false}
                       onRemove={clearBaseImage}
                     />
                   )}
@@ -272,6 +251,33 @@ export function ImageGenerator() {
                     />
                   )}
                 </div>
+
+                {/* Custom Items MultiSelect */}
+                <FormField
+                  control={form.control}
+                  name="customItems"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Add Items to Your Room</FormLabel>
+                      <MultipleSelector
+                        placeholder="Type items to add to your room (e.g., microwave, plant, bookshelf)..."
+                        creatable
+                        value={field.value}
+                        onChange={field.onChange}
+                        emptyIndicator={
+                          <p className="text-center text-lg leading-10 text-gray-600 dark:text-gray-400">
+                            No results found. Type to create a new item.
+                          </p>
+                        }
+                      />
+                      <FormDescription>
+                        Add specific items you want to include in your design.
+                        For example: sofa, coffee table, bookshelf, plants, art,
+                        etc.
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
 
                 <Button
                   type="submit"
