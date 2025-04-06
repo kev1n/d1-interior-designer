@@ -26,9 +26,11 @@ import { ImageSearch } from "@/components/ImageSearch";
 import { ImageUploader } from "@/components/ImageUploader";
 import { ImagePreview } from "@/components/ImagePreview";
 import { GeneratedImagePreview } from "@/components/GeneratedImagePreview";
+import { ThreeDSceneViewer } from "@/components/ImageSearch";
 import { Divider } from "@/components/Divider";
 import MultipleSelector from "@/components/ui/multi-select";
 import { chain } from "@/app/actions/chain";
+import { generateThreeJsScene } from "@/app/actions/gemini-3d";
 import { TurnImage } from "@/app/actions/types";
 
 // Define the form schema using zod
@@ -48,6 +50,11 @@ const formSchema = z.object({
 export function ImageGenerator() {
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [threeJsScene, setThreeJsScene] = useState<string | null>(null);
+  const [generating3DScene, setGenerating3DScene] = useState(false);
+  const [generatedImageData, setGeneratedImageData] = useState<string | null>(
+    null
+  );
 
   // Base image (required for iteration)
   const [baseImageUrl, setBaseImageUrl] = useState<string | null>(null);
@@ -109,6 +116,8 @@ export function ImageGenerator() {
 
       setLoading(true);
       setGeneratedImage(null);
+      setThreeJsScene(null);
+      setGeneratedImageData(null);
 
       // Extract base image data and create TurnImage
       const baseImageData = baseImageUrl.split(",")[1];
@@ -144,14 +153,50 @@ export function ImageGenerator() {
       }
 
       if (result.imageData) {
-        setGeneratedImage(`data:image/jpeg;base64,${result.imageData}`);
+        const imageDataUrl = `data:image/jpeg;base64,${result.imageData}`;
+        setGeneratedImage(imageDataUrl);
+        setGeneratedImageData(result.imageData);
         toast.success("Image generated successfully!");
+        console.log("Image generated successfully!");
       }
     } catch (error) {
       console.error("Error generating image:", error);
       toast.error("Failed to generate image");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Generate 3D scene from the image
+  const generate3DScene = async () => {
+    if (!generatedImageData) {
+      toast.error("No generated image to create 3D scene from");
+      return;
+    }
+
+    try {
+      console.log("Generating 3D scene...");
+      setGenerating3DScene(true);
+      setThreeJsScene(null);
+      toast.info("Generating 3D scene from the image...");
+
+      const sceneResult = await generateThreeJsScene(
+        generatedImageData,
+        "image/jpeg"
+      );
+      console.log("3D scene generated successfully!");
+
+      if (sceneResult.error) {
+        toast.error(`Failed to generate 3D scene: ${sceneResult.error}`);
+      } else if (sceneResult.htmlContent) {
+        setThreeJsScene(sceneResult.htmlContent);
+        toast.success("3D scene generated successfully!");
+      }
+    } catch (error) {
+      console.error("Error generating 3D scene:", error);
+      toast.error("Failed to generate 3D scene");
+    } finally {
+      setGenerating3DScene(false);
     }
   };
 
@@ -298,21 +343,42 @@ export function ImageGenerator() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Generated Design</CardTitle>
-            <CardDescription>
-              Your interior design will appear here once generated.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <GeneratedImagePreview
-              imageUrl={generatedImage}
-              isLoading={loading}
-              onDownload={handleDownload}
-            />
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Generated Design</CardTitle>
+              <CardDescription>
+                Your interior design will appear here once generated.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GeneratedImagePreview
+                imageUrl={generatedImage}
+                isLoading={loading}
+                onDownload={handleDownload}
+                onGenerate3D={generatedImage ? generate3DScene : undefined}
+                onRegenerate3D={generatedImage ? generate3DScene : undefined}
+                has3DScene={!!threeJsScene}
+                generating3DScene={generating3DScene}
+              />
+            </CardContent>
+          </Card>
+
+          {threeJsScene && (
+            <Card>
+              <CardHeader>
+                <CardTitle>3D Interactive View</CardTitle>
+                <CardDescription>
+                  Explore your design in 3D. Use WASD to move and mouse to look
+                  around.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ThreeDSceneViewer htmlContent={threeJsScene} />
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Loader2, Search } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -30,16 +30,19 @@ export function ImageSearch({ onImageSelect }: ImageSearchProps) {
   const [selectedSearchImage, setSelectedSearchImage] = useState<string | null>(
     null
   );
+  const isSearchingRef = useRef(false);
 
-  // Handle image search
+  // Handle image search with protection against double-triggering
   const handleImageSearch = async () => {
-    if (!searchQuery) {
-      toast.error("Please enter a search query");
+    if (!searchQuery || searchLoading || isSearchingRef.current) {
       return;
     }
 
     try {
+      // Set ref flag to prevent concurrent executions
+      isSearchingRef.current = true;
       setSearchLoading(true);
+
       const { results, error } = await searchImages(searchQuery);
 
       if (error) {
@@ -66,11 +69,15 @@ export function ImageSearch({ onImageSelect }: ImageSearchProps) {
       toast.error("Failed to search images");
     } finally {
       setSearchLoading(false);
+      // Reset the flag after completion
+      isSearchingRef.current = false;
     }
   };
 
   // Handle selecting a search result image
   const handleSelectSearchImage = async (imageUrl: string) => {
+    if (imageLoading) return;
+
     try {
       setSelectedSearchImage(imageUrl);
       setImageLoading(true);
@@ -95,6 +102,14 @@ export function ImageSearch({ onImageSelect }: ImageSearchProps) {
     }
   };
 
+  // Handle key press for search input
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleImageSearch();
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -104,12 +119,8 @@ export function ImageSearch({ onImageSelect }: ImageSearchProps) {
             placeholder="Search for interior design images"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleImageSearch();
-              }
-            }}
+            disabled={searchLoading}
+            onKeyDown={handleKeyPress}
           />
           <Button
             type="button"
@@ -150,7 +161,7 @@ export function ImageSearch({ onImageSelect }: ImageSearchProps) {
               >
                 <div className="relative h-20 w-full">
                   <Image
-                    src={result.thumbnailLink}
+                    src={result.link}
                     alt={result.title}
                     fill
                     className="object-cover"
@@ -170,6 +181,24 @@ export function ImageSearch({ onImageSelect }: ImageSearchProps) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface ThreeDSceneViewerProps {
+  htmlContent: string;
+}
+
+export function ThreeDSceneViewer({ htmlContent }: ThreeDSceneViewerProps) {
+  return (
+    <div className="relative w-full h-[400px]">
+      <iframe
+        srcDoc={htmlContent}
+        className="w-full h-full border-0 rounded-md"
+        sandbox="allow-scripts allow-same-origin"
+        loading="lazy"
+        title="3D Interior Design Scene"
+      />
     </div>
   );
 }

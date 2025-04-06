@@ -9,14 +9,23 @@ You are a interior designer.
 This is the original image that we are working with. Modify the original image such that it has the following:
 
 \${requestedChanges}
-Make sure to overlay the changes over the original image
+Make sure to overlay the changes over the original image. Preserve most of the original image, only modify the parts that are necessary to make the changes.
 `;
 const REFERENCE_IMAGE_BASE_DESCRIPTION = `furniture and decorations that encourages productivity and wellness (with some more greenery)`;
 
 const DESCRIBE_INTERIOR_PROMPT = `
-You are a interior designer trying to describe what design you've created for your clients
+You are an experienced and professional interior designer. Your task is to vividly describe, with abundant and specific detail, the interior design you have created for your clients based on the provided image.
 
-In plentiful detail, describe what design you've created for your clients
+In your response:
+
+1. Begin with an engaging overview of the style or aesthetic theme of the room (e.g., contemporary, minimalist, Scandinavian, rustic, mid-century modern).
+2. Clearly describe the color palette, explaining how each color choice contributes to the room's overall mood or ambiance.
+3. Detail the materials and textures used (such as wood, metal, glass, textiles), including their visual and tactile impact on the design.
+4. Highlight the furniture selection, placement, and its functional and aesthetic purposes.
+5. Discuss lighting choices (natural and artificial), noting how these elements enhance the space.
+6. Mention any decorative accessories, artwork, plants, or unique features.
+
+Conclude with a statement about how the overall design aligns with the client's desired lifestyle, preferences, or stated objectives.
 
 Here is the image that you have created:
 `;

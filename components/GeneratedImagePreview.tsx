@@ -8,12 +8,20 @@ interface GeneratedImagePreviewProps {
   imageUrl: string | null;
   isLoading: boolean;
   onDownload?: () => void;
+  onGenerate3D?: () => void;
+  onRegenerate3D?: () => void;
+  has3DScene?: boolean;
+  generating3DScene?: boolean;
 }
 
 export function GeneratedImagePreview({
   imageUrl,
   isLoading,
   onDownload,
+  onGenerate3D,
+  onRegenerate3D,
+  has3DScene,
+  generating3DScene,
 }: GeneratedImagePreviewProps) {
   return (
     <div className="space-y-4">
@@ -43,10 +51,33 @@ export function GeneratedImagePreview({
         )}
       </div>
 
-      {imageUrl && onDownload && (
-        <Button onClick={onDownload} className="w-full">
-          Download Image
-        </Button>
+      {imageUrl && (
+        <div className="space-y-2">
+          {onDownload && (
+            <Button onClick={onDownload} className="w-full">
+              Download Image
+            </Button>
+          )}
+
+          {!generating3DScene && !has3DScene && onGenerate3D && (
+            <Button onClick={onGenerate3D} className="w-full">
+              Generate 3D Interactive View
+            </Button>
+          )}
+
+          {!generating3DScene && has3DScene && onRegenerate3D && (
+            <Button onClick={onRegenerate3D} className="w-full">
+              Regenerate 3D View
+            </Button>
+          )}
+
+          {generating3DScene && (
+            <div className="flex items-center justify-center p-4 border rounded-md">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <span>Generating 3D scene...</span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

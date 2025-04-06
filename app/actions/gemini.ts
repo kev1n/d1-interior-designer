@@ -40,20 +40,12 @@ export async function getGeminiResponse(
         });
       }
     }
-    console.log({
-      model: isImageGeneration
-        ? "gemini-2.0-flash-exp-image-generation"
-        : "gemini-2.5-pro-preview-03-25",
-      contents: contents,
-      config: {
-        responseModalities: isImageGeneration ? ["Image"] : ["Text"],
-      },
-    });
+
     // Make the API call
     const response = await ai.models.generateContent({
       model: isImageGeneration
         ? "gemini-2.0-flash-exp-image-generation"
-        : "gemini-2.5-pro-preview-03-25",
+        : "gemini-2.0-flash",
       contents: contents,
       config: {
         responseModalities: isImageGeneration ? ["Image", "Text"] : ["Text"],
