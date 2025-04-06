@@ -191,13 +191,14 @@ interface ThreeDSceneViewerProps {
 
 export function ThreeDSceneViewer({ htmlContent }: ThreeDSceneViewerProps) {
   return (
-    <div className="relative w-full h-[400px]">
+    <div className="relative w-full h-full">
       <iframe
         srcDoc={htmlContent}
-        className="w-full h-full border-0 rounded-md"
+        className="w-full h-full border-0"
         sandbox="allow-scripts allow-same-origin"
         loading="lazy"
         title="3D Interior Design Scene"
+        style={{ height: "calc(100vh - 150px)" }}
       />
     </div>
   );

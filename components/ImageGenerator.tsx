@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImageSearch } from "@/components/ImageSearch";
 import { ImageUploader } from "@/components/ImageUploader";
 import { ImagePreview } from "@/components/ImagePreview";
@@ -55,6 +56,8 @@ export function ImageGenerator() {
   const [generatedImageData, setGeneratedImageData] = useState<string | null>(
     null
   );
+  // Active tab state
+  const [activeTab, setActiveTab] = useState("image");
 
   // Base image (required for iteration)
   const [baseImageUrl, setBaseImageUrl] = useState<string | null>(null);
@@ -156,6 +159,7 @@ export function ImageGenerator() {
         const imageDataUrl = `data:image/jpeg;base64,${result.imageData}`;
         setGeneratedImage(imageDataUrl);
         setGeneratedImageData(result.imageData);
+        setActiveTab("image"); // Switch to image tab after generation
         toast.success("Image generated successfully!");
         console.log("Image generated successfully!");
       }
@@ -190,6 +194,7 @@ export function ImageGenerator() {
         toast.error(`Failed to generate 3D scene: ${sceneResult.error}`);
       } else if (sceneResult.htmlContent) {
         setThreeJsScene(sceneResult.htmlContent);
+        setActiveTab("3d"); // Switch to 3D tab after generation
         toast.success("3D scene generated successfully!");
       }
     } catch (error) {
@@ -216,28 +221,37 @@ export function ImageGenerator() {
   const isSubmitDisabled = loading || !baseImageUrl || referenceImageLoading;
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Generate Interior Design Image</CardTitle>
+    <div className="flex w-full h-full">
+      {/* Left Sidebar */}
+      <div className="w-116 flex-shrink-0 border-r overflow-auto h-full">
+        <Card className="h-full border-0 rounded-none shadow-none">
+          <CardHeader className="px-4 py-3">
+            <div className="p-6 pb-2 flex-shrink-0">
+              <h1 className="text-4xl font-bold tracking-tight mb-3 text-center">
+                Interior Design Generator
+              </h1>
+              <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-1">
+                Create stunning interior designs using AI. Describe your dream
+                space and get instant visual concepts.
+              </p>
+            </div>
+            <hr className="my-4" />
+            <CardTitle className="text-lg">Design Controls</CardTitle>
             <CardDescription>
-              Add items to your interior design, provide a base image to iterate
-              from, and optionally add a reference image for inspiration.
+              Configure your interior design generation settings
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4">
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-6"
+                className="space-y-5"
               >
                 {/* Base Image Section - Required */}
-                <div className="space-y-4 border p-4 rounded-md">
-                  <h3 className="text-lg font-medium">Base Image (Required)</h3>
+                <div className="space-y-3 border p-3 rounded-md">
+                  <h3 className="text-md font-medium">Base Image (Required)</h3>
                   <p className="text-sm text-muted-foreground">
-                    This image will be used as a starting point to generate
-                    variations.
+                    This image will be used as a starting point.
                   </p>
 
                   {/* Base Image Upload */}
@@ -259,13 +273,12 @@ export function ImageGenerator() {
                 </div>
 
                 {/* Reference Image Section - Optional */}
-                <div className="space-y-4 border p-4 rounded-md border-dashed">
-                  <h3 className="text-lg font-medium">
+                <div className="space-y-3 border p-3 rounded-md border-dashed">
+                  <h3 className="text-md font-medium">
                     Reference Image (Optional)
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    This image provides additional inspiration but won&apos;t be
-                    directly iterated on.
+                    This image provides additional inspiration.
                   </p>
 
                   {/* Reference Image Search */}
@@ -305,19 +318,18 @@ export function ImageGenerator() {
                     <FormItem>
                       <FormLabel>Add Items to Your Room</FormLabel>
                       <MultipleSelector
-                        placeholder="Type items to add to your room (e.g., microwave, plant, bookshelf)..."
+                        placeholder="Type items to add (e.g., plant, sofa)..."
                         creatable
                         value={field.value}
                         onChange={field.onChange}
                         emptyIndicator={
                           <p className="text-center text-lg leading-10 text-gray-600 dark:text-gray-400">
-                            No results found. Type to create a new item.
+                            Type to create a new item
                           </p>
                         }
                       />
-                      <FormDescription>
-                        Add specific items you want to include in your design.
-                        For example: sofa, coffee table, bookshelf, plants, art,
+                      <FormDescription className="text-xs">
+                        Add items you want in your design: sofa, table, plants,
                         etc.
                       </FormDescription>
                     </FormItem>
@@ -342,41 +354,132 @@ export function ImageGenerator() {
             </Form>
           </CardContent>
         </Card>
+      </div>
 
-        <div className="flex flex-col gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Generated Design</CardTitle>
-              <CardDescription>
-                Your interior design will appear here once generated.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <GeneratedImagePreview
-                imageUrl={generatedImage}
-                isLoading={loading}
-                onDownload={handleDownload}
-                onGenerate3D={generatedImage ? generate3DScene : undefined}
-                onRegenerate3D={generatedImage ? generate3DScene : undefined}
-                has3DScene={!!threeJsScene}
-                generating3DScene={generating3DScene}
-              />
-            </CardContent>
-          </Card>
+      {/* Right Canvas Area with Tabs */}
+      <div className="flex-1 h-full overflow-hidden flex flex-col">
+        <div className="border-b p-3 flex items-center justify-between bg-white">
+          <h2 className="font-medium">Design Preview</h2>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-auto"
+          >
+            <TabsList>
+              <TabsTrigger
+                value="image"
+                className={
+                  activeTab === "image" ? "bg-amber-100 text-amber-900" : ""
+                }
+              >
+                2D Image
+              </TabsTrigger>
+              <TabsTrigger
+                value="3d"
+                className={
+                  activeTab === "3d" ? "bg-amber-100 text-amber-900" : ""
+                }
+              >
+                3D View
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
-          {threeJsScene && (
-            <Card>
-              <CardHeader>
-                <CardTitle>3D Interactive View</CardTitle>
-                <CardDescription>
-                  Explore your design in 3D. Use WASD to move and mouse to look
-                  around.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ThreeDSceneViewer htmlContent={threeJsScene} />
-              </CardContent>
-            </Card>
+        <div className="flex-1 overflow-auto bg-gray-50">
+          {activeTab === "image" && (
+            <div className="h-full flex flex-col items-center justify-center p-0">
+              <div className="w-full h-full">
+                <GeneratedImagePreview
+                  imageUrl={generatedImage}
+                  isLoading={loading}
+                  onDownload={handleDownload}
+                  onGenerate3D={undefined}
+                  onRegenerate3D={undefined}
+                  has3DScene={!!threeJsScene}
+                  generating3DScene={generating3DScene}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === "3d" && (
+            <div className="h-full flex flex-col">
+              {threeJsScene ? (
+                <div className="flex-1 flex flex-col h-full">
+                  <div className="flex-1 w-full h-full overflow-hidden relative">
+                    <ThreeDSceneViewer htmlContent={threeJsScene} />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent flex justify-between items-center">
+                      <Button
+                        onClick={() => setActiveTab("image")}
+                        variant="outline"
+                        className="bg-white/90 hover:bg-white"
+                      >
+                        Back to 2D View
+                      </Button>
+                      <Button
+                        onClick={generate3DScene}
+                        disabled={generating3DScene}
+                        className="bg-white/90 hover:bg-white text-black"
+                      >
+                        {generating3DScene ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Regenerating...
+                          </>
+                        ) : (
+                          "Regenerate 3D Scene"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center p-8">
+                  {generatedImage ? (
+                    <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-sm border">
+                      <h3 className="text-xl font-medium mb-4">
+                        Create 3D View
+                      </h3>
+                      <p className="text-muted-foreground mb-8">
+                        Transform your 2D design into an interactive 3D
+                        environment that you can explore.
+                      </p>
+                      <Button
+                        onClick={generate3DScene}
+                        disabled={!generatedImage || generating3DScene}
+                        size="lg"
+                        className="px-8"
+                      >
+                        {generating3DScene ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Generating 3D Scene...
+                          </>
+                        ) : (
+                          "Generate 3D Scene"
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center max-w-md mx-auto p-8 bg-white/50 rounded-lg">
+                      <h3 className="text-xl font-medium mb-4">
+                        No Image Available
+                      </h3>
+                      <p className="text-muted-foreground mb-4">
+                        Generate a 2D image first before creating a 3D view.
+                      </p>
+                      <Button
+                        onClick={() => setActiveTab("image")}
+                        variant="secondary"
+                      >
+                        Switch to 2D Tab
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -5,10 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        hostname: "*.gstatic.com",
-      },
-      {
-        hostname: "i.pinimg.com",
+        hostname: "*",
+        protocol: "https",
       },
     ],
   },

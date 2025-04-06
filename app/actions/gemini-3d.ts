@@ -32,9 +32,68 @@ export async function generateThreeJsScene(
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Create the prompt
+    // Create the prompt - keeping user's modifications
     const prompt = `
-Given an image of an indoor scene, generate a realistic and spatially accurate Three.js scene that exactly replicates the image. The output should be a self-contained HTML file that renders the scene and allows the user to explore it in first-person. Follow these requirements:
+Given an image of an indoor scene, generate a realistic and spatially accurate Three.js scene that exactly replicates the image. generate ONLY the Three.js code (JavaScript) needed to create a visually accurate 3D model of the scene.
+
+I will handle the HTML, navigation controls (WASD movement, mouse look), and all other boilerplate code.
+
+Your code will be inserted into a framework with the following structure:
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>3D Interior Scene</title>
+  <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+            }
+        }
+    </script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #instructions { position: absolute; ... } /* CSS for instructions */
+  </style>
+</head>
+<body>
+  <div id="instructions">Use WASD to move and mouse to look around</div>
+  <script type="module">
+    // THREE.JS SETUP (already provided by me)
+    import * as THREE from 'three';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // CONTROLS SETUP (already provided by me)
+    const controls = new PointerLockControls(camera, document.body);
+    // All WASD movement code will be handled
+
+    // YOUR SCENE CREATION CODE WILL BE INSERTED HERE
+    // --------------------
+
+    // Your generated code goes here
+
+    // --------------------
+    // ANIMATION LOOP (already provided by me)
+    function animate() {
+      requestAnimationFrame(animate);
+      // Handle movement
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
+\`\`\`
+
+Follow these requirements:
 
 📐 Scene Construction:
 Recreate all visible objects, furniture, walls, floors, ceilings, and windows.
@@ -50,21 +109,18 @@ Use distinct colors, textures, or placeholder materials to visually separate sim
 Match the lighting conditions (color, brightness, etc) of the image using directional or ambient light (e.g., sunlight through windows).
 Include realistic shadows for depth and clarity.
 
-🎥 Camera & Navigation (Street View-Style):
-Enable first-person navigation using pointer lock controls or equivalent:
-Allow the user to walk using WASD keys and look around with the mouse, similar to Google Street View.
-Place the camera at eye level (~1.6 meters from the ground).
-Include basic collision detection to prevent walking through walls, furniture, or other solid objects.
-Ensure the starting camera perspective closely matches that of the original image.
-
 ⚙️ Technical Constraints:
-The output must be a single standalone HTML file using Three.js.
+The output must be a \`\`\`js\`\`\` block of code.
 Do not rely on external file dependencies (e.g., external textures or models). Inline everything or use placeholders.
 Ensure the scene renders and is fully navigable in a modern browser without extra setup.
 
-First, in your thinking process, note down the relative positions of all the objects in the image. Be sure to consider depth and perspective.
+🧠 Thinking Process:
+First, in your thinking process, note down the relative positions of all the objects in the image, especially in relation to the walls, floors, and each other. Be sure to consider depth and perspective.
 Then, think about what specific items/components you need to build the scene and how they should be positioned. If you need more than one of the same item, make sure to make it into a function that can be called multiple times.
-Finally, assemble the scene from the components you've created.
+
+✍️ After Thinking Process:
+Finally, assemble the scene from the components you've created in the \`\`\`js\`\`\` block of code.
+Ensure you use only valid unicode characters, and you MUST produce valid three.js code.
 `;
 
     // Prepare the content for the API call
@@ -99,19 +155,173 @@ Finally, assemble the scene from the components you've created.
         // Strip non-English Unicode characters
         const cleanedText = stripNonEnglishChars(part.text);
 
-        // Extract the HTML content from the response text
-        const htmlRegex = /<html[\s\S]*<\/html>/i;
-        const htmlMatch = cleanedText.match(htmlRegex);
+        // Extract code from ```js or ```javascript blocks
+        const jsCodeRegex = /```(?:js|javascript)([\s\S]*?)```/;
+        const jsMatch = cleanedText.match(jsCodeRegex);
 
-        if (htmlMatch && htmlMatch[0]) {
-          return { htmlContent: htmlMatch[0] };
+        let jsCode = "";
+
+        if (jsMatch && jsMatch[1]) {
+          jsCode = jsMatch[1].trim();
         } else {
-          return { htmlContent: cleanedText };
+          // If no code block markers, check if there's any HTML or use the whole text
+          const htmlRegex = /<html[\s\S]*<\/html>/i;
+          const htmlMatch = cleanedText.match(htmlRegex);
+
+          if (htmlMatch && htmlMatch[0]) {
+            return { htmlContent: htmlMatch[0] };
+          } else {
+            // Assume the whole thing is code
+            jsCode = cleanedText;
+          }
         }
+
+        // Create the complete HTML with the JavaScript embedded
+        const fullHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>3D Interior Scene</title>
+  <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+            }
+        }
+    </script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #instructions { 
+      position: absolute; 
+      top: 10px; 
+      left: 50%; 
+      transform: translateX(-50%);
+      background-color: rgba(0,0,0,0.5);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      pointer-events: none;
+      opacity: 0.8;
+    }
+    #instructions.hidden {
+      opacity: 0;
+      transition: opacity 1s;
+    }
+  </style>
+</head>
+<body>
+  <div id="instructions">Click to enter 3D view. Use WASD to move and mouse to look around.</div>
+  <script type="module">
+    // THREE.JS SETUP (already provided by me)
+    import * as THREE from 'three';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+    
+    // THREE.JS SETUP
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // CONTROLS SETUP
+    const controls = new PointerLockControls(camera, document.body);
+    
+    // Movement variables
+    let moveForward = false;
+    let moveBackward = false;
+    let moveLeft = false;
+    let moveRight = false;
+    let canJump = false;
+    
+    let prevTime = performance.now();
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    
+    // Click to start controls
+    document.addEventListener('click', function() {
+      controls.lock();
+    });
+    
+    // Show/hide instructions
+    const instructions = document.getElementById('instructions');
+    controls.addEventListener('lock', function() {
+      instructions.classList.add('hidden');
+    });
+    controls.addEventListener('unlock', function() {
+      instructions.classList.remove('hidden');
+    });
+    
+    // Handle key presses
+    document.addEventListener('keydown', function(event) {
+      switch(event.code) {
+        case 'KeyW': moveForward = true; break;
+        case 'KeyA': moveLeft = true; break;
+        case 'KeyS': moveBackward = true; break;
+        case 'KeyD': moveRight = true; break;
+      }
+    });
+    
+    document.addEventListener('keyup', function(event) {
+      switch(event.code) {
+        case 'KeyW': moveForward = false; break;
+        case 'KeyA': moveLeft = false; break;
+        case 'KeyS': moveBackward = false; break;
+        case 'KeyD': moveRight = false; break;
+      }
+    });
+    
+    // Resize handler
+    window.addEventListener('resize', function() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // GENERATED SCENE CREATION CODE
+    ${jsCode}
+
+    // ANIMATION LOOP
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // Handle movement with time delta
+      const time = performance.now();
+      const delta = (time - prevTime) / 1000;
+      
+      velocity.x -= velocity.x * 10.0 * delta;
+      velocity.z -= velocity.z * 10.0 * delta;
+      
+      direction.z = Number(moveForward) - Number(moveBackward);
+      direction.x = Number(moveRight) - Number(moveLeft);
+      direction.normalize();
+      
+      if (moveForward || moveBackward) velocity.z -= direction.z * 20.0 * delta;
+      if (moveLeft || moveRight) velocity.x -= direction.x * 20.0 * delta;
+      
+      controls.moveRight(-velocity.x * delta);
+      controls.moveForward(-velocity.z * delta);
+      
+      prevTime = time;
+      
+      // Render the scene
+      renderer.render(scene, camera);
+    }
+    
+    animate();
+  </script>
+</body>
+</html>
+`;
+
+        return { htmlContent: fullHtml };
       }
     }
 
-    return { error: "No HTML content was generated in the response" };
+    return { error: "No JavaScript content was generated in the response" };
   } catch (error) {
     console.error("Error generating 3D scene:", error);
     return {
