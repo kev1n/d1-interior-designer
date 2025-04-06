@@ -12,7 +12,12 @@ export default function Home() {
           Create stunning interior designs using AI. Describe your dream space
           and get instant visual concepts.
         </p>
-        <ImageGenerator />
+        <ImageGenerator
+          hardcodedPrompt={`this is the original image that we are working with.
+  modify the original image such that it has furniture and decorations that encourages productivity and wellness (with some more greenery). We need you to put a mini fridge and microwave as well.
+  Make sure to overlay the changes
+  over the original image`}
+        />
       </div>
       <Toaster />
     </main>
