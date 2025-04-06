@@ -3,11 +3,13 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 ## Software, libraries, and other contributions
 
 Next.js
+Three.js
 Tailwind
 Shadcn components
 Cursor
 Gemini 2.5 Experimental
 Claude 3.7 Sonnet
+
 
 ## Getting Started
 
