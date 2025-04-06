@@ -32,13 +32,10 @@ import { Turn } from "@/app/actions/types";
 
 // Define the form schema using zod
 const formSchema = z.object({
-  prompt: z.string().min(10, {
-    message: "Prompt must be at least 10 characters.",
-  }),
   referenceImage: z.any().optional(),
 });
 
-export function ImageGenerator() {
+export function ImageGenerator({ hardcodedPrompt }: { hardcodedPrompt: string }) {
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -47,7 +44,7 @@ export function ImageGenerator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      prompt: "",
+      referenceImage: undefined,
     },
   });
 
@@ -69,7 +66,7 @@ export function ImageGenerator() {
   };
 
   // Handle form submission
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async () => {
     try {
       setLoading(true);
       setGeneratedImage(null);
@@ -77,7 +74,7 @@ export function ImageGenerator() {
       // Prepare the turns data
       const turns: Turn[] = [
         {
-          text: values.prompt,
+          text: hardcodedPrompt,
         },
       ];
 
@@ -133,27 +130,6 @@ export function ImageGenerator() {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
-                <FormField
-                  control={form.control}
-                  name="prompt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Design Prompt</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your dream interior design (e.g., A modern minimalist living room with large windows, wooden floors, and a neutral color palette)"
-                          className="min-h-[120px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Be as detailed as possible for better results.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <div className="space-y-2">
                   <FormLabel>Reference Image (Optional)</FormLabel>
                   <Input
