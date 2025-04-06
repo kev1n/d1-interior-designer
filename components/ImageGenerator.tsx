@@ -8,16 +8,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
+import { Form } from "@/components/ui/form";
 import {
   Card,
   CardContent,
@@ -60,7 +51,7 @@ export function ImageGenerator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      prompt: "",
+      referenceImage: undefined,
     },
   });
 
@@ -101,7 +92,7 @@ export function ImageGenerator() {
   };
 
   // Handle form submission
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async () => {
     try {
       // Validate that we have the required base image
       if (!baseImageUrl) {
@@ -115,7 +106,7 @@ export function ImageGenerator() {
       // Prepare the turns data
       const turns: Turn[] = [
         {
-          text: values.prompt,
+          text: form.getValues("prompt"),
         },
       ];
 
@@ -206,28 +197,6 @@ export function ImageGenerator() {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
-                {/* Design Prompt */}
-                <FormField
-                  control={form.control}
-                  name="prompt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Design Prompt</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your dream interior design (e.g., A modern minimalist living room with large windows, wooden floors, and a neutral color palette)"
-                          className="min-h-[120px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Be as detailed as possible for better results.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 {/* Base Image Section - Required */}
                 <div className="space-y-4 border p-4 rounded-md">
                   <h3 className="text-lg font-medium">Base Image (Required)</h3>
