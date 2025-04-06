@@ -36,7 +36,7 @@ export async function generateThreeJsScene(
     const prompt = `
 Given an image of an indoor scene, generate a realistic and spatially accurate Three.js scene that exactly replicates the image. generate ONLY the Three.js code (JavaScript) needed to create a visually accurate 3D model of the scene.
 
-I will handle the HTML, navigation controls (WASD movement, mouse look), and all other boilerplate code.
+I will handle the HTML, importing the Three.js library, navigation controls (WASD movement, mouse look), and all other boilerplate code.
 
 Your code will be inserted into a framework with the following structure:
 \`\`\`html
@@ -193,9 +193,9 @@ Ensure you use only valid unicode characters, and you MUST produce valid three.j
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; width: 100vw; height: 100vh; }
-    #instructions { 
+    #controls { 
       position: absolute; 
-      top: 10px; 
+      bottom: 20px; 
       left: 50%; 
       transform: translateX(-50%);
       background-color: rgba(0,0,0,0.5);
@@ -203,20 +203,46 @@ Ensure you use only valid unicode characters, and you MUST produce valid three.j
       padding: 10px 20px;
       border-radius: 5px;
       font-family: Arial, sans-serif;
-      pointer-events: none;
-      opacity: 0.8;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      z-index: 1000;
     }
-    #instructions.hidden {
-      opacity: 0;
-      transition: opacity 1s;
+    .control-btn {
+      background: rgba(255,255,255,0.8);
+      color: #222;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 15px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .control-btn:hover {
+      background: rgba(255,255,255,1);
+    }
+    .orbit-active .orbit-btn {
+      background: #f59e0b;
+      color: white;
+    }
+    .fps-active .fps-btn {
+      background: #f59e0b;
+      color: white;
     }
   </style>
 </head>
 <body>
-  <div id="instructions">Click to enter 3D view. Use WASD to move and mouse to look around.</div>
+  <div id="controls">
+    <button class="control-btn orbit-btn">Orbit View</button>
+    <button class="control-btn fps-btn">First Person</button>
+  </div>
   <script type="module">
-    // THREE.JS SETUP (already provided by me)
+    // THREE.JS SETUP
     import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
     
     // THREE.JS SETUP
@@ -227,33 +253,52 @@ Ensure you use only valid unicode characters, and you MUST produce valid three.j
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // CONTROLS SETUP
-    const controls = new PointerLockControls(camera, document.body);
+    // CONTROLS SETUP - TWO MODES
+    const orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
     
-    // Movement variables
+    const pointerControls = new PointerLockControls(camera, document.body);
+    
+    // Start with orbit controls by default
+    let controlMode = 'orbit';
+    document.body.classList.add('orbit-active');
+    
+    // Control buttons
+    const orbitBtn = document.querySelector('.orbit-btn');
+    const fpsBtn = document.querySelector('.fps-btn');
+    
+    orbitBtn.addEventListener('click', () => {
+      setControlMode('orbit');
+    });
+    
+    fpsBtn.addEventListener('click', () => {
+      setControlMode('fps');
+    });
+    
+    function setControlMode(mode) {
+      controlMode = mode;
+      
+      if (mode === 'orbit') {
+        pointerControls.unlock();
+        document.body.classList.add('orbit-active');
+        document.body.classList.remove('fps-active');
+      } else {
+        pointerControls.lock();
+        document.body.classList.add('fps-active');
+        document.body.classList.remove('orbit-active');
+      }
+    }
+    
+    // Movement variables for FPS mode
     let moveForward = false;
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
-    let canJump = false;
     
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
-    
-    // Click to start controls
-    document.addEventListener('click', function() {
-      controls.lock();
-    });
-    
-    // Show/hide instructions
-    const instructions = document.getElementById('instructions');
-    controls.addEventListener('lock', function() {
-      instructions.classList.add('hidden');
-    });
-    controls.addEventListener('unlock', function() {
-      instructions.classList.remove('hidden');
-    });
     
     // Handle key presses
     document.addEventListener('keydown', function(event) {
@@ -262,6 +307,10 @@ Ensure you use only valid unicode characters, and you MUST produce valid three.j
         case 'KeyA': moveLeft = true; break;
         case 'KeyS': moveBackward = true; break;
         case 'KeyD': moveRight = true; break;
+        case 'Space': 
+          // Toggle control mode with spacebar
+          setControlMode(controlMode === 'orbit' ? 'fps' : 'orbit');
+          break;
       }
     });
     
@@ -288,24 +337,29 @@ Ensure you use only valid unicode characters, and you MUST produce valid three.j
     function animate() {
       requestAnimationFrame(animate);
       
-      // Handle movement with time delta
-      const time = performance.now();
-      const delta = (time - prevTime) / 1000;
-      
-      velocity.x -= velocity.x * 10.0 * delta;
-      velocity.z -= velocity.z * 10.0 * delta;
-      
-      direction.z = Number(moveForward) - Number(moveBackward);
-      direction.x = Number(moveRight) - Number(moveLeft);
-      direction.normalize();
-      
-      if (moveForward || moveBackward) velocity.z -= direction.z * 20.0 * delta;
-      if (moveLeft || moveRight) velocity.x -= direction.x * 20.0 * delta;
-      
-      controls.moveRight(-velocity.x * delta);
-      controls.moveForward(-velocity.z * delta);
-      
-      prevTime = time;
+      if (controlMode === 'fps') {
+        // Handle movement with time delta
+        const time = performance.now();
+        const delta = (time - prevTime) / 1000;
+        
+        velocity.x -= velocity.x * 10.0 * delta;
+        velocity.z -= velocity.z * 10.0 * delta;
+        
+        direction.z = Number(moveForward) - Number(moveBackward);
+        direction.x = Number(moveRight) - Number(moveLeft);
+        direction.normalize();
+        
+        if (moveForward || moveBackward) velocity.z -= direction.z * 20.0 * delta;
+        if (moveLeft || moveRight) velocity.x -= direction.x * 20.0 * delta;
+        
+        pointerControls.moveRight(-velocity.x * delta);
+        pointerControls.moveForward(-velocity.z * delta);
+        
+        prevTime = time;
+      } else {
+        // Update orbit controls
+        orbitControls.update();
+      }
       
       // Render the scene
       renderer.render(scene, camera);

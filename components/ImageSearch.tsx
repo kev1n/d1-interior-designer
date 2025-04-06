@@ -198,7 +198,7 @@ export function ThreeDSceneViewer({ htmlContent }: ThreeDSceneViewerProps) {
         sandbox="allow-scripts allow-same-origin"
         loading="lazy"
         title="3D Interior Design Scene"
-        style={{ height: "calc(100vh - 150px)" }}
+        style={{ height: "100%" }}
       />
     </div>
   );

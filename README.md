@@ -1,5 +1,14 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Software, libraries, and other contributions
+
+Next.js
+Tailwind
+Shadcn components
+Cursor
+Gemini 2.5 Experimental
+Claude 3.7 Sonnet
+
 ## Getting Started
 
 First, run the development server:
